@@ -5,6 +5,7 @@ import java.net.Socket;
 
 public class MyClient {
     static Socket s;
+    static String name;
     static Runnable read_message = () ->{
         try{
             while (!s.isClosed()) {
@@ -26,17 +27,22 @@ public class MyClient {
         }
     }
     public static void main(String[] args) {
+        name = args[0];
         try (DataOutputStream dout = new DataOutputStream(s.getOutputStream());
              BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
             String req = "";
             while (!req.equals("stop")) {
                 req = reader.readLine();
-                dout.writeUTF(req);
+                dout.writeUTF(formatString(req));
                 dout.flush();
             }
         } catch (Exception e) {
             System.out.println("ex " + e.getMessage());
         }
         System.out.println("thx");
+    }
+
+    private static String formatString(String str){
+        return name.length() + name + str;
     }
 }

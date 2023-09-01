@@ -1,5 +1,8 @@
 package org.example;
 
+
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.*;
 import java.net.*;
 import java.util.Arrays;
@@ -21,11 +24,14 @@ public class MyServer {
                             DataInputStream dis = new DataInputStream(s.getInputStream());
 
                             if (dis.available() > 0) {
-                                String msg = dis.readUTF();
+                                String resp = dis.readUTF();
+                                int len = Integer.parseInt(String.valueOf(resp.charAt(0)));
+                                String name = resp.substring(1, len + 1);
+                                String msg = resp.substring(len + 1);
                                 sockets.stream().filter(s1 -> !s1.equals(s)).forEach(s1 -> {
                                     try {
                                         DataOutputStream dos = new DataOutputStream(s1.getOutputStream());
-                                        dos.writeUTF("user sent: " + msg);
+                                        dos.writeUTF(name + " sent: " + msg);
                                         dos.flush();
                                     } catch (IOException e) {
                                         System.out.println("ex " + e.getMessage());
