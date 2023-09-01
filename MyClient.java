@@ -7,12 +7,14 @@ public class MyClient {
     static Socket s;
     static Runnable read_message = () ->{
         try{
-            String res = "";
-            DataInputStream din = new DataInputStream(s.getInputStream());
-            res = din.readUTF();
-            System.out.println(res + "\n");
+            while (!s.isClosed()) {
+                String res = "";
+                DataInputStream din = new DataInputStream(s.getInputStream());
+                res = din.readUTF();
+                System.out.println(res + "\n");
+            }
         } catch (IOException e) {
-            System.out.println("hui");
+            System.out.println("ex " + e.getMessage());
         }
     };
     static {
@@ -33,7 +35,8 @@ public class MyClient {
                 dout.flush();
             }
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.out.println("ex " + e.getMessage());
         }
+        System.out.println("thx");
     }
 }

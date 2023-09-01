@@ -1,60 +1,80 @@
 package org.example;
 
-import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.*;
 import java.util.Arrays;
 import java.util.LinkedList;
 
-public class MyServer{
+public class MyServer {
     final static Object flag = new Object();
     static LinkedList<Socket> sockets;
     static ServerSocket ss;
+    static Thread initSocketThread;
+    static Thread serviceSocketsThread;
+    static Runnable serviceSockets = () -> {
+        System.out.println("delivering..");
+        while (!ss.isClosed()) {
+            if(!sockets.isEmpty()) {
+                synchronized (flag) {
+                    sockets.forEach(s -> {
+                        try {
+                            DataInputStream dis = new DataInputStream(s.getInputStream());
+
+                            if (dis.available() > 0) {
+                                String msg = dis.readUTF();
+                                sockets.stream().filter(s1 -> !s1.equals(s)).forEach(s1 -> {
+                                    try {
+                                        DataOutputStream dos = new DataOutputStream(s1.getOutputStream());
+                                        dos.writeUTF("user sent: " + msg);
+                                        dos.flush();
+                                    } catch (IOException e) {
+                                        System.out.println("ex " + e.getMessage());
+                                    }
+                                });
+                                System.out.println("message delivered");
+                            }
+                        } catch (IOException e) {
+                            System.out.println("ex " + Arrays.toString(e.getStackTrace()));
+                            throw new RuntimeException(e);
+                        }
+                    });
+                    flag.notify();
+                }
+            }
+        }
+        System.out.println("finish");
+    };
+
+    static Runnable initSocket = () -> {
+        while (!ss.isClosed()) {
+            try {
+                Socket socket = ss.accept();
+                synchronized (flag) {
+                    sockets.add(socket);
+                    System.out.println(sockets);
+                    System.out.println("client accepted");
+                    flag.wait(200);
+                }
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    };
 
 
     static {
         try {
             sockets = new LinkedList<>();
             ss = new ServerSocket(6666);
+            initSocketThread = new Thread(initSocket);
+            serviceSocketsThread = new Thread(serviceSockets);
         } catch (IOException e) {
             System.out.println("Port is busy");
         }
     }
 
     public static void main(String[] args) throws IOException {
-        Timer timer = new Timer(1000, action -> {
-            try {
-                synchronized (flag) {
-                    sockets.add(ss.accept());
-                    System.out.println(sockets);
-                }
-                System.out.println("client accepted");
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        });
-        timer.start();
-        synchronized (flag) {
-            sockets.forEach(s -> {
-                try (DataInputStream dis = new DataInputStream(s.getInputStream())) {
-                    String message = dis.readUTF();
-
-                    sockets.stream().filter(a -> !(a.equals(s)))
-                            .forEach(a -> {
-                                try (DataOutputStream dos = new DataOutputStream(s.getOutputStream())) {
-                                    dos.writeUTF("client says: " + message);
-                                    dos.flush();
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
-                } catch (IOException e) {
-                    System.out.println(Arrays.toString(e.getStackTrace()));
-                    throw new RuntimeException(e);
-                }
-            });
-        }
+        initSocketThread.start();
+        serviceSocketsThread.start();
     }
 }
